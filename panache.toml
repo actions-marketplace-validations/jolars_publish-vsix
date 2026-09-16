@@ -1,0 +1,6 @@
+flavor = "gfm"
+extend-exclude = ["node_modules/**", "CHANGELOG.md", ".devenv/**"]
+
+[formatters]
+bash = "shfmt"
+sh = "shfmt"

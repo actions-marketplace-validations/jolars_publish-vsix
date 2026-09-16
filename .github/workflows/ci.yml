@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "42 7 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
+      - name: Start local Marketplace
+        shell: bash
+        env:
+          PUBLISH_VSIX_SMOKE_READY: ${{ runner.temp }}/publish-vsix-smoke-ready
+        run: |
+          node test/support/smoke-server.mjs > "$RUNNER_TEMP/publish-vsix-smoke.log" 2>&1 &
+          for _ in {1..30}; do
+            if [[ -f "$PUBLISH_VSIX_SMOKE_READY" ]]; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/publish-vsix-smoke.log"
+          exit 1
+      - name: Publish to local Marketplace
+        id: smoke
+        uses: ./
+        with:
+          vsix-path: ${{ env.PUBLISH_VSIX_SMOKE_PATH }}
+          marketplace-token: test-token
+      - name: Check action outcome
+        shell: bash
+        env:
+          MARKETPLACE_RESULT: ${{ steps.smoke.outputs.marketplace }}
+          OPEN_VSX_RESULT: ${{ steps.smoke.outputs.open-vsx }}
+        run: |
+          test "$MARKETPLACE_RESULT" = success
+          test "$OPEN_VSX_RESULT" = not-requested
+
+  lint:
+    name: Lint and release configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run verify
+      - name: Check workflows
+        uses: docker://rhysd/actionlint:1.7.12
+      - name: Install shell linters
+        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+      - run: shellcheck scripts/update-tags.sh
+      - run: shfmt -d scripts/update-tags.sh
+      - uses: jolars/panache-action@v1
+
+  versionary:
+    name: Versionary
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - uses: jolars/versionary@v1
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}

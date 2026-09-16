@@ -1,0 +1,35 @@
+{
+  "name": "publish-vsix",
+  "private": true,
+  "description": "Publish VSIX packages to Visual Studio Marketplace and Open VSX with retries",
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "author": "Johan Larsson",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jolars/publish-vsix.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "versionary verify",
+    "check": "npm run format:check && npm run lint && npm test && npm run verify"
+  },
+  "dependencies": {
+    "@actions/core": "^2.0.0",
+    "@vscode/vsce": "4.0.0",
+    "ovsx": "1.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "globals": "^17.0.0",
+    "prettier": "^3.9.0",
+    "versionary": "1.4.0"
+  }
+}

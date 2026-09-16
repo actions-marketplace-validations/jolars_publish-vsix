@@ -1,0 +1,58 @@
+name: Publish VSIX
+description: Publish VSIX packages to Visual Studio Marketplace and Open VSX with retries
+author: Johan Larsson
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  vsix-path:
+    description: Path to an already-packaged VSIX, relative to the repository workspace
+    required: true
+  marketplace-token:
+    description: Visual Studio Marketplace personal access token; omit to skip this registry
+    required: false
+  open-vsx-token:
+    description: Open VSX personal access token; omit to skip this registry
+    required: false
+  skip-duplicate:
+    description: Treat an already-published version and platform as success
+    required: false
+    default: "true"
+  max-attempts:
+    description: Maximum attempts per registry, including the initial attempt (1 to 10)
+    required: false
+    default: "4"
+
+outputs:
+  marketplace:
+    description: Marketplace result (success, failure, or not-requested); duplicates count as success
+    value: ${{ steps.publish.outputs.marketplace }}
+  open-vsx:
+    description: Open VSX result (success, failure, or not-requested); duplicates count as success
+    value: ${{ steps.publish.outputs.open-vsx }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        package-manager-cache: false
+
+    - name: Install publishing clients
+      shell: bash
+      run: npm ci --prefix "$GITHUB_ACTION_PATH" --omit=dev --ignore-scripts --no-audit --no-fund
+
+    - name: Publish VSIX
+      id: publish
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: node "$GITHUB_ACTION_PATH/src/main.mjs"
+      env:
+        PUBLISH_VSIX_PATH: ${{ inputs.vsix-path }}
+        PUBLISH_VSIX_MARKETPLACE_TOKEN: ${{ inputs.marketplace-token }}
+        PUBLISH_VSIX_OPEN_VSX_TOKEN: ${{ inputs.open-vsx-token }}
+        PUBLISH_VSIX_SKIP_DUPLICATE: ${{ inputs.skip-duplicate }}
+        PUBLISH_VSIX_MAX_ATTEMPTS: ${{ inputs.max-attempts }}

@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+.panache-cache/
+*.vsix
+.devenv*
+!devenv.lock
+devenv.local.nix
+devenv.local.yaml
+.direnv/
+.pre-commit-config.yaml
+result
+result-*
